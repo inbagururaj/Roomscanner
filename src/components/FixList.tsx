@@ -24,7 +24,11 @@ export function FixList({ fixes }: Props) {
             accessibilityRole="checkbox"
             accessibilityState={{ checked }}
             onPress={() => toggle(index)}
-            style={({ pressed }) => [styles.fixCard, pressed && styles.pressed]}>
+            style={({ pressed }) => [
+              styles.fixCard,
+              checked && styles.fixCardDone,
+              pressed && styles.pressed,
+            ]}>
             <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
               {checked ? <Text style={styles.checkmark}>✓</Text> : null}
             </View>
@@ -37,32 +41,39 @@ export function FixList({ fixes }: Props) {
 }
 
 const styles = StyleSheet.create({
-  fixList: { gap: space(2.5) },
+  fixList: { gap: space(3) },
   fixCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: space(3.5),
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.md,
-    padding: space(4),
-    borderLeftWidth: 3,
-    borderLeftColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: space(4.5),
+    paddingHorizontal: space(4.5),
   },
-  pressed: { opacity: 0.75 },
+  fixCardDone: {
+    backgroundColor: 'transparent',
+    borderColor: colors.border,
+  },
+  pressed: { opacity: 0.6 },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.gold,
+    width: 22,
+    height: 22,
+    borderRadius: radius.sm - 4,
+    borderWidth: 1.5,
+    borderColor: colors.textFaint,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: space(0.5),
   },
-  checkboxChecked: { backgroundColor: colors.mint },
-  checkmark: { color: '#0B0A0F', fontSize: 13, fontWeight: '900' },
-  fixText: { flex: 1, color: colors.text, fontSize: 15, lineHeight: 22 },
+  checkboxChecked: { backgroundColor: colors.mint, borderColor: colors.mint },
+  checkmark: { color: colors.bg, fontSize: 13, fontWeight: '900' },
+  fixText: { flex: 1, color: colors.text, fontSize: 15.5, lineHeight: 23 },
   fixTextDone: {
     color: colors.textFaint,
     textDecorationLine: 'line-through',
-    opacity: 0.7,
+    opacity: 0.75,
   },
 });

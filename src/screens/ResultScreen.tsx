@@ -4,7 +4,7 @@ import { Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { PrimaryButton } from '../components/Buttons';
 import { FixList } from '../components/FixList';
 import { PERSONA } from '../config';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space } from '../theme';
 import type { RoastResult } from '../types';
 
 type Props = {
@@ -56,21 +56,18 @@ export function ResultScreen({ result, onRestart }: Props) {
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Animated.View style={{ opacity: reveal, transform: [{ translateY: lift }] }}>
-          <Text style={styles.kicker}>THE VERDICT</Text>
-          <Text style={[type.display, styles.headline]}>Roasted.</Text>
+          <Text style={styles.kicker}>Verdict</Text>
 
           <View style={styles.scoreRow}>
             <Text style={[styles.scoreNumber, { color: scoreColor(result.score) }]}>
               {result.score}
               <Text style={styles.scoreMax}>/10</Text>
             </Text>
-            <Text style={styles.tokenCounter}>⚡ {tokenCount.toLocaleString()} tokens</Text>
+            <Text style={styles.tokenCounter}>{tokenCount.toLocaleString()} tokens</Text>
           </View>
 
           <View style={styles.roastCard}>
-            <View style={styles.quoteMark}>
-              <Text style={styles.quoteGlyph}>“</Text>
-            </View>
+            <Text style={styles.quoteGlyph}>“</Text>
             <Text style={styles.roastText}>{result.roast}</Text>
             <View style={styles.attributionRow}>
               <View style={styles.rule} />
@@ -78,18 +75,13 @@ export function ResultScreen({ result, onRestart }: Props) {
             </View>
           </View>
 
-          <Text style={[type.section, styles.sectionLabel]}>
-            {result.fixes.length} FIXES THAT WON'T BANKRUPT YOU
-          </Text>
+          <Text style={styles.sectionLabel}>{result.fixes.length} fixes, cheap and fast</Text>
 
           <FixList fixes={result.fixes} />
 
-          <View style={styles.wipedRow}>
-            <View style={styles.wipedDot} />
-            <Text style={styles.wipedText}>
-              Video and frames deleted from this device. Nothing was stored on the server.
-            </Text>
-          </View>
+          <Text style={styles.wipedText}>
+            Video and frames deleted from this device. Nothing was stored on the server.
+          </Text>
         </Animated.View>
       </ScrollView>
 
@@ -102,43 +94,54 @@ export function ResultScreen({ result, onRestart }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  scroll: { paddingHorizontal: space(6), paddingTop: space(5), paddingBottom: space(6) },
+  scroll: { paddingHorizontal: space(6), paddingTop: space(6), paddingBottom: space(6) },
 
-  kicker: { color: colors.ember, fontSize: 11, fontWeight: '900', letterSpacing: 3 },
-  headline: { marginTop: space(1), marginBottom: space(4) },
+  kicker: {
+    color: colors.textFaint,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    marginBottom: space(2),
+  },
 
   scoreRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginBottom: space(6),
+    marginBottom: space(7),
   },
-  scoreNumber: { fontSize: 48, fontWeight: '900', letterSpacing: -1 },
-  scoreMax: { fontSize: 18, fontWeight: '700', color: colors.textFaint },
-  tokenCounter: { fontSize: 12, fontWeight: '600', color: colors.textFaint },
+  scoreNumber: { fontSize: 76, fontWeight: '900', letterSpacing: -3, lineHeight: 76 },
+  scoreMax: { fontSize: 22, fontWeight: '700', color: colors.textFaint },
+  tokenCounter: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textFaint,
+    marginBottom: space(1.5),
+  },
 
   roastCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: space(5),
-    paddingTop: space(7),
-    paddingBottom: space(5),
+    paddingHorizontal: space(6),
+    paddingTop: space(6),
+    paddingBottom: space(6),
   },
-  quoteMark: { position: 'absolute', top: space(1), left: space(4) },
   quoteGlyph: {
     color: colors.ember,
-    fontSize: 64,
-    lineHeight: 64,
+    fontSize: 32,
+    lineHeight: 32,
     fontWeight: '900',
-    opacity: 0.45,
+    marginBottom: space(1),
   },
   roastText: {
     color: colors.text,
-    fontSize: 19,
-    lineHeight: 29,
+    fontSize: 20,
+    lineHeight: 30,
     fontWeight: '500',
+    letterSpacing: -0.2,
   },
   attributionRow: {
     flexDirection: 'row',
@@ -146,7 +149,7 @@ const styles = StyleSheet.create({
     gap: space(2.5),
     marginTop: space(5),
   },
-  rule: { width: 24, height: 1, backgroundColor: colors.ember },
+  rule: { width: 20, height: 1, backgroundColor: colors.ember },
   attribution: {
     color: colors.textFaint,
     fontSize: 11,
@@ -155,17 +158,21 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  sectionLabel: { marginTop: space(8), marginBottom: space(3) },
-
-  wipedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space(2.5),
-    marginTop: space(7),
-    paddingHorizontal: space(1),
+  sectionLabel: {
+    color: colors.textDim,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    marginTop: space(9),
+    marginBottom: space(3.5),
   },
-  wipedDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.mint },
-  wipedText: { flex: 1, color: colors.textFaint, fontSize: 12, lineHeight: 17 },
+
+  wipedText: {
+    color: colors.textFaint,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: space(8),
+  },
 
   footer: {
     paddingHorizontal: space(6),

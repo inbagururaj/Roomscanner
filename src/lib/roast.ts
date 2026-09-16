@@ -59,9 +59,14 @@ function parseResult(payload: unknown): RoastResult {
   const fixes = Array.isArray(candidate?.fixes)
     ? candidate.fixes.filter((fix): fix is string => typeof fix === 'string' && fix.trim() !== '')
     : [];
+  const score = typeof candidate?.score === 'number' && Number.isFinite(candidate.score) ? candidate.score : null;
+  const tokensUsed =
+    typeof candidate?.tokensUsed === 'number' && Number.isFinite(candidate.tokensUsed)
+      ? candidate.tokensUsed
+      : 0;
 
-  if (!roast || fixes.length === 0) {
+  if (!roast || fixes.length === 0 || score === null) {
     throw new RoastError('The roast came back malformed. Try again.');
   }
-  return { roast, fixes };
+  return { roast, fixes, score, tokensUsed };
 }

@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '../components/Buttons';
+import { FixList } from '../components/FixList';
 import { PERSONA } from '../config';
 import { colors, radius, space, type } from '../theme';
 import type { RoastResult } from '../types';
@@ -11,8 +12,34 @@ type Props = {
   onRestart: () => void;
 };
 
+function scoreColor(score: number): string {
+  if (score < 4) return colors.emberDeep;
+  if (score < 8) return colors.gold;
+  return colors.mint;
+}
+
+function useCountUp(target: number, durationMs = 1200): number {
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    let raf: number;
+    const start = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(1, elapsed / durationMs);
+      setValue(Math.round(target * (1 - Math.pow(1 - progress, 3))));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, durationMs]);
+
+  return value;
+}
+
 export function ResultScreen({ result, onRestart }: Props) {
   const reveal = useRef(new Animated.Value(0)).current;
+  const tokenCount = useCountUp(result.tokensUsed);
 
   useEffect(() => {
     Animated.timing(reveal, {
@@ -32,6 +59,14 @@ export function ResultScreen({ result, onRestart }: Props) {
           <Text style={styles.kicker}>THE VERDICT</Text>
           <Text style={[type.display, styles.headline]}>Roasted.</Text>
 
+          <View style={styles.scoreRow}>
+            <Text style={[styles.scoreNumber, { color: scoreColor(result.score) }]}>
+              {result.score}
+              <Text style={styles.scoreMax}>/10</Text>
+            </Text>
+            <Text style={styles.tokenCounter}>⚡ {tokenCount.toLocaleString()} tokens</Text>
+          </View>
+
           <View style={styles.roastCard}>
             <View style={styles.quoteMark}>
               <Text style={styles.quoteGlyph}>“</Text>
@@ -47,16 +82,7 @@ export function ResultScreen({ result, onRestart }: Props) {
             {result.fixes.length} FIXES THAT WON'T BANKRUPT YOU
           </Text>
 
-          <View style={styles.fixList}>
-            {result.fixes.map((fix, index) => (
-              <View key={`${index}-${fix.slice(0, 12)}`} style={styles.fixCard}>
-                <View style={styles.fixNumber}>
-                  <Text style={styles.fixNumberText}>{index + 1}</Text>
-                </View>
-                <Text style={styles.fixText}>{fix}</Text>
-              </View>
-            ))}
-          </View>
+          <FixList fixes={result.fixes} />
 
           <View style={styles.wipedRow}>
             <View style={styles.wipedDot} />
@@ -79,7 +105,17 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: space(6), paddingTop: space(5), paddingBottom: space(6) },
 
   kicker: { color: colors.ember, fontSize: 11, fontWeight: '900', letterSpacing: 3 },
-  headline: { marginTop: space(1), marginBottom: space(6) },
+  headline: { marginTop: space(1), marginBottom: space(4) },
+
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: space(6),
+  },
+  scoreNumber: { fontSize: 48, fontWeight: '900', letterSpacing: -1 },
+  scoreMax: { fontSize: 18, fontWeight: '700', color: colors.textFaint },
+  tokenCounter: { fontSize: 12, fontWeight: '600', color: colors.textFaint },
 
   roastCard: {
     backgroundColor: colors.surface,
@@ -120,26 +156,6 @@ const styles = StyleSheet.create({
   },
 
   sectionLabel: { marginTop: space(8), marginBottom: space(3) },
-  fixList: { gap: space(2.5) },
-  fixCard: {
-    flexDirection: 'row',
-    gap: space(3.5),
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.md,
-    padding: space(4),
-    borderLeftWidth: 3,
-    borderLeftColor: colors.gold,
-  },
-  fixNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fixNumberText: { color: '#241700', fontSize: 13, fontWeight: '900' },
-  fixText: { flex: 1, color: colors.text, fontSize: 15, lineHeight: 22 },
 
   wipedRow: {
     flexDirection: 'row',

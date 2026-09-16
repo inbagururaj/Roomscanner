@@ -37,6 +37,10 @@ The fixes:
 - Free or under about 30 dollars, and doable in an afternoon. Rearranging, decluttering, a lamp, hooks, a rug pad, curtain rings.
 - No renovations, no "hire a designer", no buying furniture.
 
+The score:
+- An integer 0-10 rating the room's current state. 0 is a disaster zone, 10 is immaculate and well-composed.
+- Judge clutter, layout and traffic flow, and lighting together. Be honest and use the full range — most real rooms land in the middle.
+
 If the stills are too dark or too blurry to judge, say so in the roast — wittily — and give fixes about how to shoot it again.`;
 
 const USER_INSTRUCTION = `These are stills from one walkthrough of a single room, in order.
@@ -61,8 +65,14 @@ const ROAST_TOOL: Anthropic.Tool = {
         description:
           'Two or three fixes. Each is one imperative sentence, specific to this room, free or under $30.',
       },
+      score: {
+        type: 'integer',
+        description: "Integer 0-10 rating the room's current state. 0 is a disaster, 10 is immaculate.",
+        minimum: 0,
+        maximum: 10,
+      },
     },
-    required: ['roast', 'fixes'],
+    required: ['roast', 'fixes', 'score'],
     additionalProperties: false,
   },
 };
@@ -125,7 +135,8 @@ Deno.serve(async (request) => {
     if (!result) {
       return json({ error: 'The critic went quiet. Try again.' }, 502);
     }
-    return json(result, 200);
+    const tokensUsed = (message.usage?.input_tokens ?? 0) + (message.usage?.output_tokens ?? 0);
+    return json({ ...result, tokensUsed }, 200);
   } catch (error) {
     // Deliberately logs only the failure shape — never the request body.
     console.error('[roast] upstream failure', describe(error));
@@ -178,10 +189,10 @@ function splitDataUri(value: string): ImagePart {
   return { mediaType: 'image/jpeg', data: value };
 }
 
-function readResult(message: Anthropic.Message): { roast: string; fixes: string[] } | null {
+function readResult(message: Anthropic.Message): { roast: string; fixes: string[]; score: number } | null {
   for (const block of message.content) {
     if (block.type !== 'tool_use' || block.name !== TOOL_NAME) continue;
-    const input = block.input as { roast?: unknown; fixes?: unknown };
+    const input = block.input as { roast?: unknown; fixes?: unknown; score?: unknown };
     const roast = typeof input.roast === 'string' ? input.roast.trim() : '';
     const fixes = Array.isArray(input.fixes)
       ? input.fixes
@@ -190,7 +201,11 @@ function readResult(message: Anthropic.Message): { roast: string; fixes: string[
           .filter((fix) => fix.length > 0)
           .slice(0, 3)
       : [];
-    if (roast && fixes.length > 0) return { roast, fixes };
+    const score =
+      typeof input.score === 'number' && Number.isFinite(input.score)
+        ? Math.min(10, Math.max(0, Math.round(input.score)))
+        : null;
+    if (roast && fixes.length > 0 && score !== null) return { roast, fixes, score };
   }
   return null;
 }

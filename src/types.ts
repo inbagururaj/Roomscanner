@@ -9,4 +9,6 @@ export type Frame = {
 export type RoastResult = {
   roast: string;
   fixes: string[];
+  score: number;
+  tokensUsed: number;
 };

@@ -83,29 +83,42 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
+  logStage('request', 'start', request.method);
+
   if (request.method !== 'POST') {
-    return json({ error: 'Use POST.' }, 405);
+    logStage('request', 'failure', `unsupported method ${request.method}`);
+    return json({ error: 'Use POST.', stage: 'request', reason: 'bad_method' }, 405);
   }
   if (!Deno.env.get('ANTHROPIC_API_KEY')) {
-    return json({ error: 'The roast service is missing its API key.' }, 500);
+    logStage('config', 'failure', 'ANTHROPIC_API_KEY is not set');
+    return json(
+      { error: 'The roast service is missing its API key.', stage: 'config', reason: 'missing_api_key' },
+      500,
+    );
   }
 
   let body: unknown;
   try {
     body = await request.json();
-  } catch {
-    return json({ error: 'Request body must be JSON.' }, 400);
+  } catch (error) {
+    logStage('request', 'failure', `invalid JSON body: ${describe(error)}`);
+    return json({ error: 'Request body must be JSON.', stage: 'request', reason: 'invalid_json' }, 400);
   }
 
   let images: ImagePart[];
   try {
     images = parseImages(body);
+    logStage('request', 'success', `${images.length} images`);
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Bad request body.' }, 400);
+    const message = error instanceof Error ? error.message : 'Bad request body.';
+    logStage('request', 'failure', message);
+    return json({ error: message, stage: 'request', reason: 'invalid_images' }, 400);
   }
 
+  let message: Anthropic.Message;
   try {
-    const message = await anthropic.messages.create({
+    logStage('llm_call', 'start', `${images.length} images, model ${MODEL}`);
+    message = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 4_000,
       system: SYSTEM_PROMPT,
@@ -126,36 +139,59 @@ Deno.serve(async (request) => {
         },
       ],
     });
-
-    if (message.stop_reason === 'refusal') {
-      return json({ error: 'This one is off limits for the critic. Try a different room.' }, 422);
-    }
-
-    const result = readResult(message);
-    if (!result) {
-      return json({ error: 'The critic went quiet. Try again.' }, 502);
-    }
-    const tokensUsed = (message.usage?.input_tokens ?? 0) + (message.usage?.output_tokens ?? 0);
-    return json({ ...result, tokensUsed }, 200);
+    logStage('llm_call', 'success', `stop_reason ${message.stop_reason}`);
   } catch (error) {
-    // Deliberately logs only the failure shape — never the request body.
-    console.error('[roast] upstream failure', describe(error));
+    // Deliberately logs only the failure shape — never the request body or image bytes.
+    logStage('llm_call', 'failure', describe(error));
     if (error instanceof Anthropic.RateLimitError) {
-      return json({ error: 'The critic is overbooked. Try again in a moment.' }, 429);
-    }
-    if (
-      error instanceof Anthropic.AuthenticationError ||
-      error instanceof Anthropic.PermissionDeniedError ||
-      error instanceof Anthropic.BadRequestError
-    ) {
-      // Bad key, no credit, or a malformed request: retrying will not help, so say so.
       return json(
-        { error: 'The roast service is misconfigured. Check its API key and credit balance.' },
+        { error: 'The critic is overbooked. Try again in a moment.', stage: 'llm', reason: 'rate_limit' },
+        429,
+      );
+    }
+    if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) {
+      // Bad or revoked key: retrying will not help.
+      return json(
+        { error: 'The roast service is misconfigured. Check its API key.', stage: 'config', reason: 'llm_auth' },
         500,
       );
     }
-    return json({ error: 'The critic could not be reached. Try again.' }, 502);
+    if (error instanceof Anthropic.BadRequestError) {
+      // Malformed request to the LLM, or out of credit — surfaced as a 400/402 upstream.
+      return json(
+        {
+          error: 'The roast service could not process this request. Check its credit balance.',
+          stage: 'llm',
+          reason: 'llm_bad_request',
+        },
+        500,
+      );
+    }
+    return json(
+      { error: 'The critic could not be reached. Try again.', stage: 'llm', reason: 'llm_unreachable' },
+      502,
+    );
   }
+
+  if (message.stop_reason === 'refusal') {
+    logStage('parse_response', 'failure', 'model refused');
+    return json(
+      { error: 'This one is off limits for the critic. Try a different room.', stage: 'llm', reason: 'refusal' },
+      422,
+    );
+  }
+
+  const result = readResult(message);
+  if (!result) {
+    logStage('parse_response', 'failure', 'no valid tool_use block in response');
+    return json(
+      { error: 'The critic went quiet. Try again.', stage: 'llm', reason: 'malformed_response' },
+      502,
+    );
+  }
+  const tokensUsed = (message.usage?.input_tokens ?? 0) + (message.usage?.output_tokens ?? 0);
+  logStage('parse_response', 'success', `score ${result.score}, ${tokensUsed} tokens`);
+  return json({ ...result, tokensUsed }, 200);
 });
 
 type ImagePart = { mediaType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string };
@@ -214,6 +250,16 @@ function describe(error: unknown): string {
   if (error instanceof Anthropic.APIError) return `APIError ${error.status}: ${error.message}`;
   if (error instanceof Error) return `${error.name}: ${error.message}`;
   return 'unknown error';
+}
+
+/** Stage + status only — never image bytes or request body. */
+function logStage(stage: string, status: 'start' | 'success' | 'failure', detail?: string) {
+  const line = `[${new Date().toISOString()}] [roast:${stage}] ${status}`;
+  if (status === 'failure') {
+    console.error(line, detail ?? '');
+  } else {
+    console.log(line, detail ?? '');
+  }
 }
 
 function json(payload: unknown, status: number): Response {

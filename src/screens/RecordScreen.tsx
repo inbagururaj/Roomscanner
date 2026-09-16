@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GhostButton, PrimaryButton } from '../components/Buttons';
 import { MAX_RECORD_SECONDS } from '../config';
+import { logStage } from '../lib/log';
 import { colors, mono, radius, space, type } from '../theme';
 
 type Props = {
@@ -52,15 +53,19 @@ export function RecordScreen({ onRecorded, onError }: Props) {
       if (elapsed >= MAX_RECORD_SECONDS * 1_000) stop();
     }, TICK_MS);
 
+    logStage('record', 'start');
     try {
       const recording = await camera.recordAsync({ maxDuration: MAX_RECORD_SECONDS });
       const duration = Math.min(Date.now() - startedAt.current, MAX_RECORD_SECONDS * 1_000);
       if (recording?.uri) {
+        logStage('record', 'success', `${duration}ms`);
         onRecorded(recording.uri, duration);
       } else {
+        logStage('record', 'failure', 'recordAsync resolved without a uri');
         onError('The recording did not save. Give it another go.');
       }
     } catch (error) {
+      logStage('record', 'failure', error instanceof Error ? `${error.name}: ${error.message}` : String(error));
       onError(error instanceof Error ? error.message : 'Recording failed.');
     } finally {
       clearTimer();

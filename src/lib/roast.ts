@@ -29,6 +29,12 @@ export async function requestRoast(frames: Frame[]): Promise<RoastResult> {
     if (controller.signal.aborted) {
       throw new RoastError('The roast took too long. Check your connection and try again.');
     }
+    console.error(
+      '[roast] fetch failed:',
+      error instanceof Error
+        ? { name: error.name, message: error.message, cause: (error as { cause?: unknown }).cause }
+        : error,
+    );
     throw new RoastError('Could not reach the roast service. Check your connection.');
   } finally {
     clearTimeout(timeout);
